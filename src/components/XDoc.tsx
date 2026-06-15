@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { SourceFileRecord } from "../types";
 import { 
@@ -19,6 +19,52 @@ import {
   RefreshCw 
 } from "lucide-react";
 
+// ====================================================
+// REUSABLE INTERSECTION OBSERVER FOR SCROLL REVEAL
+// ====================================================
+function useScrollObserver() {
+  const domRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("animate-slide-in");
+            entry.target.classList.remove("opacity-0");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -50px 0px" }
+    );
+
+    const currentElem = domRef.current;
+    if (currentElem) {
+      const targets = currentElem.querySelectorAll(".reveal-section");
+      if (targets.length > 0) {
+        targets.forEach((t) => {
+          t.classList.add("opacity-0");
+          observer.observe(t);
+        });
+      } else {
+        currentElem.classList.add("opacity-0");
+        observer.observe(currentElem);
+      }
+    }
+
+    return () => {
+      if (currentElem) {
+        const targets = currentElem.querySelectorAll(".reveal-section");
+        targets.forEach((t) => observer.unobserve(t));
+        observer.unobserve(currentElem);
+      }
+    };
+  }, []);
+
+  return domRef;
+}
+
 export function XDoc() {
   const {
     sourceFiles,
@@ -31,11 +77,17 @@ export function XDoc() {
     updateSheetData,
     deck,
     updateDeck,
-    addToast
+    addToast,
+    saveDocumentVersion,
+    restoreDocumentVersion
   } = useWorkspaceStore() as any;
+
+  const revealRef = useScrollObserver();
 
   const activeFile = sourceFiles.find((f: any) => f.id === activeFileId);
   const [editorText, setEditorText] = useState(activeFile?.extractedText || "");
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [newVersionLabel, setNewVersionLabel] = useState("");
 
   // Local editing sync handler for Docs
   const handleSaveDocContent = () => {
@@ -120,7 +172,7 @@ export function XDoc() {
   };
 
   return (
-    <div className="flex-grow flex flex-col min-h-[500px] bg-[#03040A] text-left">
+    <div ref={revealRef} className="flex-grow flex flex-col min-h-[500px] bg-[#03040A] text-left overflow-x-hidden">
       
       {/* Tab Selector sub bar */}
       <div className="py-2.5 border-b-2 border-black bg-[#0b0b12] px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
@@ -189,7 +241,7 @@ export function XDoc() {
         
         {/* --- 1. XDOCS TEXT/MARKDOWN EDITOR --- */}
         {activeDocSubTab === "docs" && (
-          <div className="flex-grow flex flex-col min-h-0 space-y-4 p-4 md:p-6">
+          <div className="flex-grow flex flex-col min-h-0 space-y-4 p-4 md:p-6 reveal-section transition-all duration-300">
             {/* Toolbar Docs mockup */}
             <div className="h-12 bg-[#0b0b12] border-3 border-black p-4 flex items-center justify-between shrink-0 shadow-[4px_4px_0_rgba(0,0,0,1)]">
               <div className="flex items-center space-x-3 text-slate-400 font-mono">
@@ -212,34 +264,149 @@ export function XDoc() {
                   <Link2 size={13} />
                 </button>
                 <span className="w-px h-4 bg-white/10" />
-                <span className="text-[10px] text-slate-500 hidden sm:inline">Markdown shortcuts support active</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryOpen(!historyOpen);
+                    addToast(historyOpen ? "Collapsed version checkpoints browser" : "Expanded version checkpoints browser", "info");
+                  }}
+                  className={`px-2 py-0.5 text-[9px] font-bold border-2 border-black transition-all font-mono uppercase cursor-pointer shadow-[1px_1px_0_rgba(0,0,0,1)] hover:bg-white hover:text-black ${
+                    historyOpen 
+                      ? "bg-[#00F5FF] text-black" 
+                      : "bg-slate-950 text-slate-400"
+                  }`}
+                >
+                  History {historyOpen ? "ON" : "OFF"}
+                </button>
+                <span className="w-px h-4 bg-white/10" />
+                <span className="text-[10px] text-slate-500 hidden xl:inline">Markdown shortcuts active</span>
               </div>
 
               <button
                 onClick={handleSaveDocContent}
                 disabled={!activeFile}
-                className="bg-[#CCFF00] text-black border-2 border-black font-mono font-black text-[10px] uppercase px-3.5 py-1 shadow-[2px_2px_0_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shrink-0"
+                className="bg-[#CCFF00] text-black border-2 border-black font-mono font-black text-[10px] uppercase px-3.5 py-1 shadow-[2px_2px_0_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px ] flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shrink-0"
               >
                 <RefreshCw size={11} /> 
                 <span>Save Text Core</span>
               </button>
             </div>
 
-            {/* Docs Content Text Area */}
-            <div className="flex-grow bg-[#0b0b12] border-3 border-black p-6 flex flex-col shadow-[4px_4px_0_rgba(0,0,0,1)]">
-              <textarea
-                value={editorText}
-                onChange={(e) => setEditorText(e.target.value)}
-                placeholder="Synchronize document parameters here. When files pass OCR checking, editing their raw text directly populates our vector states instantly."
-                className="w-full flex-grow bg-transparent text-slate-100 placeholder-slate-700 focus:outline-none resize-none font-mono text-xs leading-relaxed outline-none border-none"
-              />
+            {/* Split layout: main document text editor Left + version snapshots right */}
+            <div className="flex-grow flex flex-col xl:flex-row gap-5 min-h-0">
+              {/* Left Column: Docs Content Text Area */}
+              <div className="flex-1 bg-[#0b0b12] border-3 border-black p-5 flex flex-col shadow-[4px_4px_0_rgba(0,0,0,1)] min-h-[260px]">
+                <textarea
+                  value={editorText}
+                  onChange={(e) => setEditorText(e.target.value)}
+                  placeholder="Synchronize document parameters here. When files pass OCR checking, editing their raw text directly populates our vector states instantly."
+                  className="w-full flex-grow bg-transparent text-slate-100 placeholder-slate-700 focus:outline-none resize-none font-mono text-xs leading-relaxed outline-none border-none h-full"
+                />
+              </div>
+
+              {/* Right Column: Checkpoint Version Browser */}
+              {historyOpen && (
+                <div className="w-full xl:w-[280px] shrink-0 bg-[#0b0b12] border-3 border-black p-4 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col space-y-3.5 font-mono text-xs min-h-0 overflow-y-auto">
+                  <div className="border-b-2 border-black pb-2.5 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[10px] font-black tracking-widest text-[#00F5FF] uppercase">
+                        REVISION PORTAL
+                      </h4>
+                      <p className="text-[8px] text-slate-500 mt-0.5">Restore document state checkpoints</p>
+                    </div>
+                    <span className="text-[8.5px] font-bold bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30 px-1.5 py-0.5 leading-none">
+                      {(activeFile?.versions?.length || 0)} Saved
+                    </span>
+                  </div>
+
+                  {activeFile ? (
+                    <>
+                      {/* Create Snapshot Trigger Container */}
+                      <div className="bg-[#03040A] p-2.5 border-2 border-black space-y-1.5">
+                        <span className="text-[8.5px] uppercase text-slate-400 font-extrabold block">
+                          Tag New revision:
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Snapshot label..."
+                            value={newVersionLabel}
+                            onChange={(e) => setNewVersionLabel(e.target.value)}
+                            className="bg-black border border-black focus:border-[#CCFF00] text-[9.5px] text-white px-2 py-1 focus:outline-none w-full font-mono shrink-0 min-w-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!editorText.trim()) {
+                                addToast("Cannot checkpoint an empty document text core!", "warn");
+                                return;
+                              }
+                              // Save checkpoint version
+                              saveDocumentVersion(activeFile.id, newVersionLabel);
+                              setNewVersionLabel("");
+                              addToast("Secure document checkpoint serialized!", "success");
+                            }}
+                            className="bg-[#CCFF00] text-black border border-black hover:bg-white px-2.5 py-1 text-[9px] font-extrabold uppercase shrink-0 transition-all active:scale-95 cursor-pointer"
+                          >
+                            TAG
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Snapshots Scrollable Listing */}
+                      <div className="space-y-2 max-h-[220px] xl:max-h-none overflow-y-auto pr-0.5 flex-1">
+                        {(!activeFile.versions || activeFile.versions.length === 0) ? (
+                          <div className="text-center text-slate-600 py-6 italic text-[9px]">
+                            No checkpoints Cataloged on active file. Use &quot;TAG&quot; to build.
+                          </div>
+                        ) : (
+                          activeFile.versions.map((ver: any) => (
+                            <div 
+                              key={ver.id}
+                              className="bg-[#03040A] border-2 border-black p-3 space-y-1.5 hover:border-[#CCFF00] transition-colors text-left"
+                            >
+                              <div className="flex justify-between items-start gap-1">
+                                <span className="font-extrabold text-[#00F5FF] text-[10px] truncate max-w-[150px] leading-tight block">
+                                  {ver.label}
+                                </span>
+                                <span className="text-[7.5px] bg-[#121620] border border-white/5 text-slate-400 px-1 py-0.2 shrink-0">
+                                  {ver.content ? ver.content.length : 0}B
+                                </span>
+                              </div>
+                              <span className="text-[8px] text-slate-500 font-bold block">
+                                {new Date(ver.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditorText(ver.content);
+                                  restoreDocumentVersion(activeFile.id, ver.id);
+                                  addToast(`Active document state rolled back to: ${ver.label}`, "success");
+                                }}
+                                className="w-full bg-[#121620] hover:bg-[#CCFF00] hover:text-black hover:border-black text-slate-300 font-bold text-[8.5px] py-1 border border-white/10 transition-all uppercase cursor-pointer text-center"
+                              >
+                                RESTORE REVISION
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-slate-600 py-10 italic">
+                      No document context active.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* --- 2. INTERACTIVE SPREADSHEET LEDGER --- */}
         {activeDocSubTab === "sheets" && (
-          <div className="flex-grow flex flex-col p-4 md:p-6 space-y-4 overflow-hidden text-left">
+          <div className="flex-grow flex flex-col p-4 md:p-6 space-y-4 overflow-hidden text-left reveal-section transition-all duration-300">
             {/* Spreadsheet command utilities */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0">
               <h3 className="text-xs font-mono uppercase text-white font-bold tracking-wider flex items-center gap-1.5 bg-[#0b0b12] px-3.5 py-1.5 border-2 border-black shadow-[3px_3px_0_rgba(0,0,0,1)]">
@@ -346,7 +513,7 @@ export function XDoc() {
 
         {/* --- 3. DYNAMIC SLIDES PRESENTATION --- */}
         {activeDocSubTab === "slides" && (
-          <div className="flex-grow flex flex-col lg:flex-row p-4 md:p-6 gap-6 min-h-0 overflow-hidden">
+          <div className="flex-grow flex flex-col lg:flex-row p-4 md:p-6 gap-6 min-h-0 overflow-hidden reveal-section transition-all duration-300">
             {/* Visual slides directory index */}
             <div className="w-full lg:w-56 overflow-y-auto shrink-0 space-y-3 pr-2 select-none">
               <div className="flex justify-between items-center bg-[#0b0b12] p-3 border-2 border-black shadow-[3px_3px_0_rgba(0,0,0,1)]">

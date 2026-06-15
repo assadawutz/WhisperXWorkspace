@@ -35,12 +35,155 @@ export function WhisperX() {
     ollamaUrl,
     ollamaModel,
     artifacts,
-    addToast
+    addToast,
+    agentPositions,
+    updateAgentPosition
   } = useWorkspaceStore() as any;
 
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [whisperTab, setWhisperTab] = useState<"agents" | "orchestrator">("agents");
+
+  // Roster view, drag-and-drop, and mini-chat states
+  const [rosterViewMode, setRosterViewMode] = useState<"grid" | "list">("grid");
+  const [openMiniPromptId, setOpenMiniPromptId] = useState<string | null>(null);
+  const [miniChatInput, setMiniChatInput] = useState("");
+  const [miniChatLoading, setMiniChatLoading] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  // High-precision pointer drag and drop mechanics with grid-snapping
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, agentId: string) => {
+    if (e.button !== 0) return; // ignore right clicks
+    
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("select") || target.closest("input") || target.closest("a")) {
+      return; // let actions capture their own clicks
+    }
+
+    const container = gridContainerRef.current;
+    if (!container) return;
+
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const element = e.currentTarget as HTMLElement;
+
+    try {
+      element.setPointerCapture(e.pointerId);
+    } catch (err) {}
+
+    const originalX = agentPositions?.[agentId]?.x ?? 30;
+    const originalY = agentPositions?.[agentId]?.y ?? 30;
+
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      
+      const deltaX = moveEvent.clientX - startClientX;
+      const deltaY = moveEvent.clientY - startClientY;
+
+      let newX = originalX + deltaX;
+      let newY = originalY + deltaY;
+
+      // Snap to 20px grid marks
+      newX = Math.round(newX / 20) * 20;
+      newY = Math.round(newY / 20) * 20;
+
+      // Clamping within coordinates board
+      const maxLimitX = rect.width - element.offsetWidth - 15;
+      const maxLimitY = rect.height - element.offsetHeight - 15;
+
+      newX = Math.max(15, Math.min(newX, maxLimitX));
+      newY = Math.max(35, Math.min(newY, maxLimitY)); // stay below 20px header
+
+      updateAgentPosition(agentId, newX, newY);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      upEvent.preventDefault();
+      try {
+        element.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+
+      document.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      document.removeEventListener("pointerup", handlePointerUp, { capture: true });
+    };
+
+    document.addEventListener("pointermove", handlePointerMove, { capture: true });
+    document.addEventListener("pointerup", handlePointerUp, { capture: true });
+  };
+
+  const handleOpenMiniChat = (agentId: string) => {
+    setOpenMiniPromptId(agentId);
+    setMiniChatInput("");
+  };
+
+  const handleSendMiniMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!miniChatInput.trim() || !openMiniPromptId) return;
+
+    const currentAgentId = openMiniPromptId;
+    const promptValue = miniChatInput;
+
+    const userMsg: ChatMessage = {
+      id: `msg-user-${Date.now()}`,
+      role: "user",
+      agentId: currentAgentId,
+      content: promptValue,
+      timestamp: new Date().toISOString(),
+    };
+    
+    addChatMessage(userMsg);
+    setMiniChatInput("");
+    setMiniChatLoading(true);
+
+    const activeAgent = ORCHESTRATION_AGENTS.find((a) => a.id === currentAgentId);
+    const systemInstruction = activeAgent
+      ? `You are Agent ${activeAgent.name}, role: ${activeAgent.role}. Your persona is: "${activeAgent.persona}". Respond strictly within your character style, keeping responses helpful, concise, and focused.`
+      : "You are the general WhisperX Workspace Coordinator.";
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          model: "gemini-3.5-flash",
+          prompt: userMsg.content,
+          systemInstruction,
+          history: chatMessages.filter((m: any) => m.agentId === currentAgentId).slice(-8),
+          ollamaUrl,
+          ollamaModel,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Chat execution failed");
+
+      const data = await res.json();
+      addChatMessage({
+        id: `msg-model-${Date.now()}`,
+        role: "model",
+        agentId: currentAgentId,
+        content: data.text,
+        timestamp: new Date().toISOString(),
+      });
+      addToast(`Received Direct Response from ${currentAgentId}`, "success");
+    } catch (err: any) {
+      addChatMessage({
+        id: `msg-err-${Date.now()}`,
+        role: "model",
+        agentId: currentAgentId,
+        content: `Direct prompt route connection issue: ${err.message || "Standby proxy active"}. Standard responses loaded.`,
+        timestamp: new Date().toISOString(),
+      });
+      addToast("Direct proxy failed. Standard response executed.", "warn");
+    } finally {
+      setMiniChatLoading(false);
+    }
+  };
   
   // Orchestration specific states
   const [orchestrationGoal, setOrchestrationGoal] = useState("");
@@ -234,132 +377,274 @@ export function WhisperX() {
         {/* Tab CONTENT 1: Agent Gallery Grid Cards */}
         {whisperTab === "agents" && (
           <div className="space-y-4 animate-fade-in text-left">
-            <div className="flex justify-between items-center bg-[#0b0b12] border-2 border-black p-3.5 shadow-[3px_3px_0_rgba(0,0,0,1)]">
-              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                <Activity size={10} className="text-[#CCFF00] animate-pulse" />
-                ROSTER PIPELINE STATUS ({selectedAgents.length} ON TEAM)
-              </span>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-[#0b0b12] border-2 border-black p-3.5 gap-3 shadow-[3px_3px_0_rgba(0,0,0,1)]">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                <span className="text-[9px] uppercase font-mono tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5 shrink-0">
+                  <Activity size={10} className="text-[#CCFF00] animate-pulse" />
+                  ROSTER PIPELINE STATUS ({selectedAgents.length} ON TEAM)
+                </span>
+                
+                {/* Visual view mode toggler */}
+                <div className="flex border border-white/10 p-0.5 bg-black/60 font-mono self-start sm:self-auto shrink-0">
+                  <button
+                    onClick={() => setRosterViewMode("grid")}
+                    className={`px-2 py-0.5 text-[8px] font-bold uppercase ${
+                      rosterViewMode === "grid" 
+                        ? "bg-[#00F5FF] text-black" 
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Freeform Grid (Drag)
+                  </button>
+                  <button
+                    onClick={() => setRosterViewMode("list")}
+                    className={`px-2 py-0.5 text-[8px] font-bold uppercase ${
+                      rosterViewMode === "list" 
+                        ? "bg-[#CCFF00] text-black" 
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Classic Cards
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={selectFullTeam}
-                className="text-[9.5px] font-bold text-[#CCFF00] hover:underline uppercase font-mono cursor-pointer"
+                className="text-[9.5px] font-bold text-[#CCFF00] hover:underline uppercase font-mono cursor-pointer shrink-0 self-end sm:self-auto"
               >
                 DEPLOY ENTIRE TEAM (9_AGENTS)
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ORCHESTRATION_AGENTS.map((item) => {
-                const isSelected = selectedAgents.includes(item.id);
-                const isActiveChat = activeAgentId === item.id;
-                
-                // Neon avail dot (green online / amber busy)
-                // We'll calculate a pseudo availability status for high fidelity
-                const isBusy = ["KODE", "NOVA", "REX"].includes(item.id);
+            {/* Roster View Mode: Freeform Interactive Drag & Drop Grid */}
+            {rosterViewMode === "grid" && (
+              <div 
+                ref={gridContainerRef}
+                className="relative w-full h-[580px] bg-[#03040A] border-2 border-black overflow-hidden select-none"
+                style={{
+                  backgroundImage: "radial-gradient(rgba(0, 245, 255, 0.12) 1.2px, transparent 1.2px)",
+                  backgroundSize: "20px 20px",
+                }}
+              >
+                {/* Ruler markers decorative */}
+                <div className="absolute top-0 left-0 w-full h-6 bg-black/80 border-b border-white/10 text-[8px] text-slate-400 font-mono flex items-center px-2.5 justify-between z-20">
+                  <span>COORD SCALE // GRIDS SNAPPING ACTIVE [20px]</span>
+                  <span>GRID BOARD (640px x 580px) // DRAG TO ARRANGE AGENTS</span>
+                </div>
 
-                let cardStyle = "border-black bg-[#0b0b12] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-[#00F5FF]";
-                if (isActiveChat) {
-                  cardStyle = "border-[#CCFF00] bg-[#CCFF00]/5 shadow-[4px_4px_0_rgba(0,0,0,1)] shadow-[#CCFF00]/10";
-                } else if (isSelected) {
-                  cardStyle = "border-[#00F5FF] bg-[#00F5FF]/5 shadow-[4px_4px_0_rgba(0,0,0,1)] shadow-[#00F5FF]/10";
-                }
+                {ORCHESTRATION_AGENTS.map((item) => {
+                  const pos = agentPositions?.[item.id] || { x: 40, y: 40 };
+                  const isSelected = selectedAgents.includes(item.id);
+                  const isActiveChat = activeAgentId === item.id;
+                  const isBusy = ["KODE", "NOVA", "REX"].includes(item.id);
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-4 border-2 flex flex-col space-y-3.5 transition-all text-left ${cardStyle}`}
-                  >
-                    {/* Header: Name, Avatar & Status Badge */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-2.5">
-                        <span className="text-xl p-2 bg-[#03040A] border-2 border-black shadow-[2px_2px_0_rgba(0,0,0,1)] select-none">
-                          {item.avatar}
-                        </span>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="text-xs font-bold text-white tracking-wide">{item.id}</h3>
-                            {/* Realtime availability status dot indicator */}
-                            <span 
-                              className={`w-2 h-2 rounded-full inline-block ${isBusy ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-pulse"}`} 
-                              title={isBusy ? "Node occupied in background queue" : "Node online"}
-                            />
+                  let cardStyle = "border-black bg-black/90 shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-[#00F5FF]/40";
+                  if (isActiveChat) {
+                    cardStyle = "border-[#CCFF00] bg-[#CCFF00]/5 shadow-[4px_4px_0_rgba(204,255,0,0.25)]";
+                  } else if (isSelected) {
+                    cardStyle = "border-[#00F5FF] bg-[#00F5FF]/5 shadow-[4px_4px_0_rgba(0,245,255,0.25)]";
+                  }
+
+                  const isHovered = hoveredNodeId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      onPointerDown={(e) => handlePointerDown(e, item.id)}
+                      onMouseEnter={() => setHoveredNodeId(item.id)}
+                      onMouseLeave={() => setHoveredNodeId(null)}
+                      className={`absolute p-3 border-2 rounded-none flex flex-col space-y-2 cursor-grab active:cursor-grabbing transition-all select-none w-[185px] z-10 ${cardStyle}`}
+                      style={{
+                        left: `${pos.x}px`,
+                        top: `${pos.y}px`,
+                        transform: isHovered
+                          ? "perspective(500px) rotateY(14deg) translateZ(10px)"
+                          : "perspective(500px) rotateY(0deg) translateZ(0px)",
+                      }}
+                    >
+                      {/* Header bar area */}
+                      <div className="flex items-center justify-between pointer-events-none select-none">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-[13px] bg-slate-900 px-1.5 py-0.5 border border-white/5">{item.avatar}</span>
+                          <div className="leading-none text-left">
+                            <span className="font-bold text-[10.5px] text-white tracking-wide">{item.id}</span>
+                            <span className="text-[7.5px] text-slate-500 font-mono block uppercase">{item.name}</span>
                           </div>
-                          <span className="text-[9px] font-mono text-slate-400 block truncate max-w-[130px]" title={item.role}>
-                            {item.role}
-                          </span>
                         </div>
+                        <span className={`w-2 h-2 rounded-full ${isBusy ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-pulse"}`} />
                       </div>
 
-                      {/* Status tags */}
-                      {isActiveChat ? (
-                        <span className="text-[8px] bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30 px-1.5 py-0.5 font-mono font-bold flex items-center gap-1">
-                          CHAT NODE
+                      {/* Role Title */}
+                      <div className="bg-black/60 px-1.5 py-0.5 border border-white/5 rounded text-left pointer-events-none select-none">
+                        <span className="text-[8px] text-[#00F5FF] font-mono block uppercase truncate select-none leading-none">
+                          {item.role}
                         </span>
-                      ) : isSelected ? (
-                        <span className="text-[8px] bg-[#00F5FF]/10 text-[#00F5FF] border border-[#00F5FF]/30 px-1.5 py-0.5 font-mono font-bold">
-                          ASSIGNED
-                        </span>
-                      ) : (
-                        <span className="text-[8px] bg-slate-900 text-slate-500 border border-white/5 px-1.5 py-0.5 font-mono font-bold">
-                          IDLE
-                        </span>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Persona text */}
-                    <p className="text-[10.5px] text-slate-300 leading-relaxed min-h-[50px] line-clamp-3">
-                      {item.persona}
-                    </p>
-
-                    {/* Skill labels */}
-                    <div className="flex flex-wrap gap-1">
-                      {item.skills.slice(0, 3).map((sk, skIdx) => (
-                        <span
-                          key={skIdx}
-                          className="text-[8px] font-mono px-1.5 py-0.5 bg-black/60 border border-white/5 text-slate-400"
+                      {/* Actions panel */}
+                      <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-white/5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenMiniChat(item.id);
+                          }}
+                          className="text-[8.5px] font-mono font-black py-1 px-1 bg-[#121620] hover:bg-white hover:text-black hover:border-white border border-black text-slate-300 transition-all cursor-pointer shadow-[1px_1px_0_rgba(0,0,0,1)]"
                         >
-                          {sk}
-                        </span>
-                      ))}
-                    </div>
+                          ⚡ MINI CHAT
+                        </button>
 
-                    {/* Bottom layout buttons */}
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                      <button
-                        onClick={() => {
-                          setActiveAgentId(item.id);
-                          addChatMessage({
-                            id: `msg-welcome-${Date.now()}`,
-                            role: "model",
-                            agentId: item.id,
-                            content: `Connection authorized. I am Agent ${item.id} (${item.role}). Send query prompts or workspace analysis requests directly over this channel.`,
-                            timestamp: new Date().toISOString(),
-                          });
-                          addToast(`Switched chat focus: Agent ${item.id}`, "info");
-                        }}
-                        className={`text-[9.5px] font-mono font-black py-1.5 border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] ${
-                          isActiveChat
-                            ? "bg-[#CCFF00] text-black"
-                            : "bg-[#121620] text-slate-300 hover:bg-white hover:text-black"
-                        }`}
-                      >
-                        CHAT NODE
-                      </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleAgentOnRoster(item.id);
+                          }}
+                          className={`text-[8.5px] font-mono font-black py-1 px-1 border border-black transition-all cursor-pointer shadow-[1px_1px_0_rgba(0,0,0,1)] ${
+                            isSelected ? "bg-[#FF2D78] text-white" : "bg-[#00F5FF] text-black"
+                          }`}
+                        >
+                          {isSelected ? "REMOVE" : "DEPLOY"}
+                        </button>
+                      </div>
 
-                      <button
-                        onClick={() => toggleAgentOnRoster(item.id)}
-                        className={`text-[9.5px] font-mono font-black py-1.5 border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] ${
-                          isSelected
-                            ? "bg-[#FF2D78] text-white"
-                            : "bg-[#00F5FF] text-black"
-                        }`}
-                      >
-                        {isSelected ? "DISMISS" : "DEPLOY"}
-                      </button>
+                      {/* Position feedback label */}
+                      <div className="text-right pointer-events-none font-mono text-[6.5px] text-slate-500 uppercase leading-none">
+                        COORD ({pos.x}X, {pos.y}Y)
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Roster View Mode: Classic Cards */}
+            {rosterViewMode === "list" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {ORCHESTRATION_AGENTS.map((item) => {
+                  const isSelected = selectedAgents.includes(item.id);
+                  const isActiveChat = activeAgentId === item.id;
+                  const isBusy = ["KODE", "NOVA", "REX"].includes(item.id);
+                  const isListHovered = hoveredNodeId === `list-${item.id}`;
+
+                  let cardStyle = "border-black bg-[#0b0b12] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-[#00F5FF]";
+                  if (isActiveChat) {
+                    cardStyle = "border-[#CCFF00] bg-[#CCFF00]/5 shadow-[4px_4px_0_rgba(0,0,0,1)] border-2";
+                  } else if (isSelected) {
+                    cardStyle = "border-[#00F5FF] bg-[#00F5FF]/5 shadow-[4px_4px_0_rgba(0,245,255,0.25)] border-2";
+                  }
+
+                  return (
+                    <div
+                      key={item.id}
+                      onMouseEnter={() => setHoveredNodeId(`list-${item.id}`)}
+                      onMouseLeave={() => setHoveredNodeId(null)}
+                      className={`p-4 border-2 flex flex-col space-y-3.5 transition-all text-left ${cardStyle}`}
+                      style={{
+                        transform: isListHovered
+                          ? "perspective(500px) rotateY(10deg) translateZ(5px)"
+                          : "perspective(500px) rotateY(0deg) translateZ(0px)"
+                      }}
+                    >
+                      {/* Header: Name, Avatar & Status Badge */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="text-xl p-2 bg-[#03040A] border-2 border-black shadow-[2px_2px_0_rgba(0,0,0,1)] select-none">
+                            {item.avatar}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="text-xs font-bold text-white tracking-wide">{item.id}</h3>
+                              <span 
+                                className={`w-2 h-2 rounded-full inline-block ${isBusy ? "bg-amber-400 animate-pulse" : "bg-emerald-400 animate-pulse"}`} 
+                                title={isBusy ? "Node occupied in background queue" : "Node online"}
+                              />
+                            </div>
+                            <span className="text-[9px] font-mono text-slate-400 block truncate max-w-[130px]" title={item.role}>
+                              {item.role}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isActiveChat ? (
+                          <span className="text-[8px] bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30 px-1.5 py-0.5 font-mono font-bold flex items-center gap-1">
+                            CHAT NODE
+                          </span>
+                        ) : isSelected ? (
+                          <span className="text-[8px] bg-[#00F5FF]/10 text-[#00F5FF] border border-[#00F5FF]/30 px-1.5 py-0.5 font-mono font-bold">
+                            ASSIGNED
+                          </span>
+                        ) : (
+                          <span className="text-[8px] bg-slate-900 text-slate-500 border border-white/5 px-1.5 py-0.5 font-mono font-bold">
+                            IDLE
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Persona text */}
+                      <p className="text-[10.5px] text-slate-300 leading-relaxed min-h-[50px] line-clamp-3">
+                        {item.persona}
+                      </p>
+
+                      {/* Skill labels */}
+                      <div className="flex flex-wrap gap-1">
+                        {item.skills.slice(0, 3).map((sk, skIdx) => (
+                          <span
+                            key={skIdx}
+                            className="text-[8px] font-mono px-1.5 py-0.5 bg-black/60 border border-white/5 text-slate-400"
+                          >
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Bottom layout buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => {
+                              setActiveAgentId(item.id);
+                              addChatMessage({
+                                id: `msg-welcome-${Date.now()}`,
+                                role: "model",
+                                agentId: item.id,
+                                content: `Connection authorized. I am Agent ${item.id} (${item.role}). Send query prompts or workspace analysis requests directly over this channel.`,
+                                timestamp: new Date().toISOString(),
+                              });
+                              addToast(`Switched chat focus: Agent ${item.id}`, "info");
+                            }}
+                            className={`flex-grow text-[9.5px] font-mono font-black py-1.5 border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] ${
+                              isActiveChat
+                                ? "bg-[#CCFF00] text-black"
+                                : "bg-[#121620] text-slate-300 hover:bg-white hover:text-black"
+                            }`}
+                          >
+                            CHAT NODE
+                          </button>
+                          <button
+                            onClick={() => handleOpenMiniChat(item.id)}
+                            className="px-2.5 text-slate-300 hover:text-[#00F5FF] hover:bg-white/5 border-2 border-black rounded-none transition-all cursor-pointer font-bold text-[10.5px]"
+                            title="Direct Mini Chat Prompt"
+                          >
+                            ⚡
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => toggleAgentOnRoster(item.id)}
+                          className={`text-[9.5px] font-mono font-black py-1.5 border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] ${
+                            isSelected
+                              ? "bg-[#FF2D78] text-white"
+                              : "bg-[#00F5FF] text-black"
+                          }`}
+                        >
+                          {isSelected ? "DISMISS" : "DEPLOY"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -623,6 +908,103 @@ export function WhisperX() {
           </button>
         </form>
       </div>
+
+      {/* DIRECT MINI-CHAT FLOATING PORTAL OVERLAY */}
+      {openMiniPromptId && (() => {
+        const ag = ORCHESTRATION_AGENTS.find((a) => a.id === openMiniPromptId);
+        if (!ag) return null;
+
+        const filteredMsgs = chatMessages.filter(
+          (m: any) => m.agentId === openMiniPromptId
+        );
+
+        return (
+          <div className="fixed inset-0 bg-[#06080D]/85 backdrop-blur-[4px] z-50 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-md bg-[#0b0b12] border-2 border-black shadow-[6px_6px_0_rgba(0,245,255,1)] flex flex-col font-mono text-left max-h-[500px]">
+              
+              {/* Header Title Bar */}
+              <div className="bg-black px-4 py-3 border-b-2 border-black flex items-center justify-between select-none shrink-0">
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-sm bg-slate-950 p-1 border border-white/5">{ag.avatar}</span>
+                  <div className="text-left leading-tight">
+                    <span className="font-extrabold text-[#00F5FF] text-[12px] block">DIRECT TUNNEL: {ag.id}</span>
+                    <span className="text-[8.5px] text-slate-400 block lowercase truncate max-w-[190px]">{ag.role}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenMiniPromptId(null)}
+                  className="bg-[#FF2D78] hover:bg-white text-white hover:text-black border-2 border-black px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-all shadow-[2px_2px_0_rgba(0,0,0,1)]"
+                >
+                  ESC CLOSE
+                </button>
+              </div>
+
+              {/* Persona Context block */}
+              <div className="bg-slate-900/60 p-2.5 border-b border-black text-[9.5px] text-slate-400 italic font-sans shrink-0">
+                <span className="font-bold text-[#00F5FF] font-mono not-italic uppercase tracking-widest text-[8px] block mb-0.5 animate-pulse">⚙ SYSTEM DIRECT PERSONALITY ACTIF</span>
+                "{ag.persona}"
+              </div>
+
+              {/* Chat Threads roll */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#03040A] min-h-[180px] max-h-[260px]">
+                {filteredMsgs.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-3 text-slate-500 space-y-2">
+                    <Brain size={20} className="text-[#00F5FF] animate-pulse" />
+                    <span className="text-[9.5px] font-bold text-slate-400">ISOLATED COM_GAP ACTIVE</span>
+                    <p className="text-[8px] text-slate-600 max-w-xs leading-normal">
+                      No direct system prompts have been issued over this tunnel in this session. Write instructions below to trigger responses.
+                    </p>
+                  </div>
+                ) : (
+                  filteredMsgs.map((msg: any) => {
+                    const isUser = msg.role === "user";
+                    return (
+                      <div key={msg.id} className={`flex flex-col max-w-[90%] ${isUser ? "ml-auto" : "mr-auto"}`}>
+                        <div className={`text-[8.5px] text-slate-600 mb-0.5 ${isUser ? "text-right" : "text-left"}`}>
+                          {isUser ? "YOU [TUNNEL SOURCE]" : `${ag.id} [TUNNEL NODE]`}
+                        </div>
+                        <div className={`p-2 text-[10px] border border-black leading-relaxed shadow-[2px_2px_0_rgba(0,0,0,1)] ${
+                          isUser ? "bg-[#CCFF00] text-black font-bold" : "bg-[#121620] text-slate-200"
+                        }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                {miniChatLoading && (
+                  <div className="flex items-center space-x-1.5 text-[#00F5FF]/80 italic text-[9px] font-mono select-none">
+                    <span className="w-1.5 h-1.5 bg-[#00F5FF] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-[#00F5FF] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-[#00F5FF] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span>TUNNEL COMPUTING...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Inputs row */}
+              <form onSubmit={handleSendMiniMessage} className="p-3 border-t border-black flex gap-2 shrink-0 bg-[#0e121a]">
+                <input
+                  type="text"
+                  value={miniChatInput}
+                  onChange={(e) => setMiniChatInput(e.target.value)}
+                  disabled={miniChatLoading}
+                  placeholder={`Send direct directive to ${ag.id}...`}
+                  className="flex-grow bg-[#03040A] border rounded-none border-black px-3 py-1.5 text-[10.5px] text-white placeholder-slate-600 focus:outline-none focus:border-[#00F5FF]"
+                />
+                <button
+                  type="submit"
+                  disabled={miniChatLoading || !miniChatInput.trim()}
+                  className="bg-[#00F5FF] text-black border-2 border-black font-extrabold px-3 py-1 text-[10px] shadow-[2px_2px_0_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] hover:bg-white cursor-pointer"
+                >
+                  SEND
+                </button>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

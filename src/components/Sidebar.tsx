@@ -2,6 +2,7 @@ import React from "react";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { Home, MessageSquare, Files, Hammer, Settings, Menu, X, Landmark, UserCheck } from "lucide-react";
 import { useDevice } from "./DeviceProvider";
+import { InteractiveTilt } from "./InteractiveTilt";
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -21,30 +22,51 @@ export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   ];
 
   const content = (
-    <div className="flex flex-col h-full bg-[#12161F] border-r border-white/10 w-64 shrink-0 text-slate-400">
-      {/* Brand Launcher banner */}
-      <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-[#151921]">
+    <div className="flex flex-col h-full bg-[#0b0b12] border-r-3 border-black w-64 shrink-0 text-slate-350 font-mono">
+      {/* Brand Launcher Banner with heavy borders */}
+      <div className="h-16 border-b-3 border-black flex items-center justify-between px-5 bg-black/80">
         <div className="flex items-center space-x-2">
-          <Landmark size={18} className="text-blue-450 animate-pulse" />
-          <span className="font-mono text-xs font-bold text-slate-200 tracking-widest uppercase">
-            WHISPERX HUB
+          <div className="p-1 bg-[#CCFF00] border border-black shadow-[1px_1px_0_rgba(0,0,0,1)] text-black">
+            <Landmark size={14} className="animate-pulse" />
+          </div>
+          <span className="font-mono text-[11px] font-black text-white tracking-widest uppercase">
+            WHISPER // HUB
           </span>
         </div>
         {device !== "desktop" && (
-          <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">
-            <X size={16} />
+          <button 
+            onClick={() => setMobileOpen(false)} 
+            className="bg-[#FF2D78] text-white border-2 border-black p-1 text-[10px] font-bold cursor-pointer transition-all active:scale-90"
+          >
+            ✕
           </button>
         )}
       </div>
 
-      {/* Navigation buttons */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        <p className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest pl-3 mb-2">
-          Workspace Navigation
+      {/* Navigation Buttons List */}
+      <nav className="flex-1 p-4 space-y-2.5 overflow-y-auto">
+        <p className="text-[9px] font-mono font-black text-[#00F5FF] uppercase tracking-wider pl-1 mb-2">
+          SYSTEM_ROUTES::
         </p>
         {menuItems.map((item) => {
           const IconComp = item.icon;
           const isActive = activeTab === item.id;
+          
+          let btnStyle = "bg-transparent text-slate-400 border-2 border-transparent hover:text-white hover:bg-white/5";
+          if (isActive) {
+            if (item.id === "home") {
+              btnStyle = "bg-[#CCFF00] text-black border-black font-black shadow-[3px_3px_0_rgba(0,0,0,1)]";
+            } else if (item.id === "agent") {
+              btnStyle = "bg-[#00F5FF] text-black border-black font-black shadow-[3px_3px_0_rgba(0,0,0,1)]";
+            } else if (item.id === "doc") {
+              btnStyle = "bg-[#B44FFF] text-white border-black font-black shadow-[3px_3px_0_rgba(0,0,0,1)]";
+            } else if (item.id === "tools") {
+              btnStyle = "bg-[#FF2D78] text-white border-black font-black shadow-[3px_3px_0_rgba(0,0,0,1)]";
+            } else {
+              btnStyle = "bg-white text-black border-black font-black shadow-[3px_3px_0_rgba(0,0,0,1)]";
+            }
+          }
+
           return (
             <button
               key={item.id}
@@ -52,19 +74,15 @@ export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                 setActiveTab(item.id);
                 if (device !== "desktop") setMobileOpen(false);
               }}
-              className={`w-full flex items-center space-x-3.5 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
-                isActive
-                  ? "bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
+              className={`w-full flex items-center space-x-3 px-3 py-2 transition-all cursor-pointer ${btnStyle}`}
             >
-              <div className={`p-1.5 rounded-lg ${isActive ? "bg-blue-500/20" : "bg-white/5"}`}>
-                <IconComp size={16} className={isActive ? "text-blue-450" : "text-slate-400"} />
+              <div className={`p-1.5 ${isActive ? "bg-black/15" : "bg-black/30 border border-white/5"}`}>
+                <IconComp size={14} className={isActive ? "text-current" : "text-slate-400"} />
               </div>
-              <div className="text-left">
-                <span className="text-xs block leading-tight">{item.label}</span>
-                <span className={`text-[10px] block font-normal leading-none mt-0.5 ${
-                  isActive ? "text-blue-300/80" : "text-slate-500"
+              <div className="text-left filter drop-shadow-[1px_1px_0_rgba(0,0,0,0.15)]">
+                <span className="text-xs block leading-tight font-extrabold uppercase tracking-wide">{item.label}</span>
+                <span className={`text-[8.5px] block font-normal leading-none mt-0.5 ${
+                  isActive ? "text-current opacity-70" : "text-slate-500"
                 }`}>
                   {item.subtitle}
                 </span>
@@ -74,15 +92,15 @@ export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
         })}
       </nav>
 
-      {/* Active Session user details */}
-      <div className="p-4 border-t border-white/10 bg-white/2">
-        <div className="flex items-center space-x-3 bg-white/5 p-2.5 rounded-xl border border-white/10">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white font-mono text-xs border border-white/10">
+      {/* Active Session info footer panel with brutalist border */}
+      <div className="p-4 border-t-3 border-black bg-black/60">
+        <div className="flex items-center space-x-2.5 bg-[#03040A] p-2.5 border-2 border-black shadow-[2px_2px_0_rgba(0,0,0,1)]">
+          <div className="w-7 h-7 bg-[#FF2D78] border border-black flex items-center justify-center font-black text-white font-mono text-xs shadow-[1px_1px_0_rgba(0,0,0,1)]">
             AS
           </div>
-          <div className="truncate">
-            <p className="text-xs font-semibold text-slate-300 leading-none truncate">assadawut.sarakul</p>
-            <p className="text-[10px] text-slate-500 mt-1 truncate">assadawut.sarakul@gmail.com</p>
+          <div className="truncate text-left leading-tight">
+            <p className="text-[10px] font-black text-white truncate">assadawut.sarakul</p>
+            <p className="text-[8px] text-slate-500 font-mono mt-0.5 truncate">assadawut.sarakul@gmail.com</p>
           </div>
         </div>
       </div>
@@ -93,13 +111,17 @@ export function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   if (device !== "desktop") {
     if (!mobileOpen) return null;
     return (
-      <div className="fixed inset-0 bg-black/65 z-50 flex">
+      <div className="fixed inset-0 bg-black/65 z-50 flex border-r-3 border-black">
         {content}
         <div className="flex-1" onClick={() => setMobileOpen(false)} />
       </div>
     );
   }
 
-  return content;
+  return (
+    <InteractiveTilt max={3} perspective={1500} className="h-full w-64 shrink-0 relative z-30">
+      {content}
+    </InteractiveTilt>
+  );
 }
 export { Menu as HamburgerIcon };

@@ -48,6 +48,44 @@ export function XSettings() {
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
+  const handleExportWorkspaceBackup = () => {
+    try {
+      const state = useWorkspaceStore.getState();
+      const backupData = {
+        sourceFiles: state.sourceFiles,
+        artifacts: state.artifacts,
+        canvasScene: state.canvasScene,
+        graphScene: state.graphScene,
+        sheetData: state.sheetData,
+        deck: state.deck,
+        reviewRecords: state.reviewRecords,
+        readinessReports: state.readinessReports,
+        chatMessages: state.chatMessages,
+        provider: state.provider,
+        geminiApiKey: state.geminiApiKey,
+        ollamaUrl: state.ollamaUrl,
+        ollamaModel: state.ollamaModel,
+        fallbackMode: state.fallbackMode,
+        agentPositions: (state as any).agentPositions,
+        timestamp: new Date().toISOString(),
+        generator: "WhisperX Workspace Backup Utility"
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `whisperx_backup_${new Date().toISOString().slice(0, 10).replace(/-/g, "_")}_${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addToast("Exported local backup JSON file successfully!", "success");
+    } catch (err: any) {
+      addToast("Failed to compile local workspace backup file", "error");
+    }
+  };
+
   return (
     <div className="flex-grow p-6 space-y-6 overflow-y-auto bg-[#03040A] text-left">
       
@@ -208,48 +246,85 @@ export function XSettings() {
           </div>
         </form>
 
-        {/* Right Column: System Environment Health Check */}
-        <div className="xl:col-span-5 bg-[#0b0b12] border-3 border-black p-6 shadow-[5px_5px_0_rgba(0,0,0,1)] space-y-4">
-          <h3 className="text-xs font-black font-mono text-[#00F5FF] tracking-wider uppercase flex items-center gap-1.5 border-b-2 border-black pb-2.5">
-            <Network size={14} /> Telemetry health parameters
-          </h3>
+        {/* Right Column: System Environment Health Check & Backup card */}
+        <div className="xl:col-span-5 space-y-6">
+          <div className="bg-[#0b0b12] border-3 border-black p-6 shadow-[5px_5px_0_rgba(0,0,0,1)] space-y-4">
+            <h3 className="text-xs font-black font-mono text-[#00F5FF] tracking-wider uppercase flex items-center gap-1.5 border-b-2 border-black pb-2.5">
+              <Network size={14} /> Telemetry health parameters
+            </h3>
 
-          <div className="space-y-3.5">
-            {/* Health parameters lists index */}
-            <div className="space-y-2 font-mono text-[10.5px] text-slate-350 bg-[#03040A] p-4 border-2 border-black">
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <span>Roster status check:</span>
-                <span className="text-[#CCFF00] font-bold">9 BOTS DEPLOYED</span>
+            <div className="space-y-3.5">
+              {/* Health parameters lists index */}
+              <div className="space-y-2 font-mono text-[10.5px] text-slate-350 bg-[#03040A] p-4 border-2 border-black">
+                <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                  <span>Roster status check:</span>
+                  <span className="text-[#CCFF00] font-bold">9 BOTS DEPLOYED</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                  <span>Registry System range:</span>
+                  <span className="text-slate-300 font-bold">66 Core pipelines</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                  <span>Module subsystems:</span>
+                  <span className="text-slate-300 font-bold">84 Component matrices</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                  <span>Compiler warnings:</span>
+                  <span className="text-emerald-400 font-bold">0 FATAL CODE ISSUES</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                  <span>Workspace DB Path:</span>
+                  <span className="text-slate-400 font-bold">Zustand Storage Hook</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Core socket port:</span>
+                  <span className="text-slate-400 font-bold">3000 Standard Container</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <span>Registry System range:</span>
-                <span className="text-slate-300 font-bold">66 Core pipelines</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <span>Module subsystems:</span>
-                <span className="text-slate-300 font-bold">84 Component matrices</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <span>Compiler warnings:</span>
-                <span className="text-emerald-400 font-bold">0 FATAL CODE ISSUES</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <span>Workspace DB Path:</span>
-                <span className="text-slate-400 font-bold">Zustand Storage Hook</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Core socket port:</span>
-                <span className="text-slate-400 font-bold">3000 Standard Container</span>
+
+              <div className="bg-[#FF2D78]/10 p-3.5 border border-[#FF2D78]/30 space-y-1">
+                <div className="flex items-center space-x-1.5 text-[#FF2D78] font-black font-mono text-[9px] uppercase tracking-wider">
+                  <ShieldAlert size={12} /> Compliance warning
+                </div>
+                <p className="text-[9px] text-slate-400 leading-normal italic mt-1 font-mono">
+                  WhisperX utilizes localized secure-tunnel encryption models. No raw document credentials, tesseract texts, or access parameters are stored or broadcast to third party caches.
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="bg-[#FF2D78]/10 p-3.5 border border-[#FF2D78]/30 space-y-1">
-              <div className="flex items-center space-x-1.5 text-[#FF2D78] font-black font-mono text-[9px] uppercase tracking-wider">
-                <ShieldAlert size={12} /> Compliance warning
+          {/* LOCAL WORKSPACE BACKUP UTILITY CARD */}
+          <div className="bg-[#0b0b12] border-3 border-black p-6 shadow-[5px_5px_0_rgba(0,0,0,1)] space-y-4 text-left">
+            <h3 className="text-xs font-black font-mono text-[#CCFF00] tracking-wider uppercase flex items-center gap-1.5 border-b-2 border-black pb-2.5">
+              <Database size={14} /> Local Backups & Data Export
+            </h3>
+
+            <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
+              Export your entire WhisperX environment (all source files, ingested OCR text, custom agent coordinate positions, snapshots, and chat history metrics) as a packaged recovery JSON.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleExportWorkspaceBackup}
+              className="w-full bg-[#00F5FF] hover:bg-white text-black font-mono font-black text-xs py-3.5 px-4 border-2 border-black shadow-[3px_3px_0_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Database size={14} /> EXPORT BACKUP RECOVERY FILE
+            </button>
+
+            <div className="bg-black/45 border border-white/5 p-3 text-[8.5px] text-slate-400 font-mono space-y-1">
+              <span className="text-[9px] font-bold text-slate-450 block mb-1">PACKAGING STATISTICS:</span>
+              <div className="flex justify-between">
+                <span>Ingested Files:</span>
+                <span className="text-[#00F5FF] font-bold">1 Ingested File</span>
               </div>
-              <p className="text-[9px] text-slate-400 leading-normal italic mt-1 font-mono">
-                WhisperX utilizes localized secure-tunnel encryption models. No raw document credentials, tesseract texts, or access parameters are stored or broadcast to third party caches.
-              </p>
+              <div className="flex justify-between">
+                <span>Active Agent Nodes:</span>
+                <span className="text-[#00F5FF] font-bold">9 Coordinate Vectors</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Session Messages:</span>
+                <span className="text-[#00F5FF] font-bold">Active Chat Cache</span>
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useDevice } from "./DeviceProvider";
 
 interface StackNode {
   id: string;
@@ -13,6 +14,7 @@ interface StackNode {
 export function CoreStacksConnector() {
   const { addToast } = useWorkspaceStore() as any;
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const device = useDevice();
 
   // Nodes position coordinates within 600x200 responsive SVG grid
   const nodes: StackNode[] = [
@@ -36,6 +38,57 @@ export function CoreStacksConnector() {
     { from: "tiptap", to: "tess" },
     { from: "zustand", to: "tess" },
   ];
+
+  if (device === "mobile") {
+    return (
+      <div className="bg-[#03040A] p-4 border-3 border-black relative overflow-hidden select-none shadow-[4px_4px_0_rgba(0,0,0,1)] text-left space-y-4">
+        <div className="absolute inset-0 bg-[#0b0b12] pointer-events-none opacity-40" />
+        
+        <div className="relative z-10 border-b-2 border-black pb-3 flex justify-between items-center">
+          <div>
+            <h4 className="text-xs font-black font-mono tracking-tight flex items-center gap-1.5 text-[#CCFF00]">
+              <span className="w-1.5 h-1.5 bg-[#CCFF00] inline-block animate-ping rounded-full" />
+              INTEGRATION ROUTINGS (MOBILE)
+            </h4>
+            <p className="text-[8.5px] text-slate-400 font-mono mt-0.5">
+              Continuous framework integration pipelines nominal.
+            </p>
+          </div>
+          <button 
+            onClick={() => addToast("Testing Core Stacks Flow Connector triggers", "success")} 
+            className="bg-[#00F5FF] text-black text-[8px] font-bold font-mono px-2 py-1 border-2 border-black active:scale-95 transition-all cursor-pointer select-none shrink-0"
+          >
+            SYNC
+          </button>
+        </div>
+
+        <div className="relative pl-6 space-y-4 py-2">
+          {/* Vertical connection vector line */}
+          <div className="absolute left-3 top-0 bottom-0 w-1 bg-black overflow-hidden border border-white/5">
+            {/* Animated neon line indicator */}
+            <div className="absolute top-0 bottom-0 left-0 right-0 bg-gradient-to-b from-[#CCFF00] via-[#FF2D78] to-[#00F5FF] h-20 animate-bounce" style={{ animationDuration: '3s' }} />
+          </div>
+
+          {nodes.map((n) => (
+            <div key={n.id} className="relative flex items-center gap-3 bg-[#0b0b12] border-2 border-black p-2.5 shadow-[2px_2px_0_rgba(0,0,0,1)]">
+              {/* Node index circles */}
+              <div 
+                className="w-7 h-7 rounded-full bg-[#03040A] border-2 flex items-center justify-center font-black text-xs font-mono shrink-0"
+                style={{ borderColor: n.color, color: n.color, boxShadow: `0px 0px 8px ${n.color}3a` }}
+              >
+                {n.logo}
+              </div>
+              
+              <div className="text-left font-mono leading-none">
+                <span className="text-[10px] font-black text-white block uppercase tracking-wide">{n.name}</span>
+                <span className="text-[8px] text-slate-500 block uppercase mt-1">Status: Nominal • Online</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#03040A] p-6 border-3 border-black relative overflow-hidden select-none shadow-[6px_6px_0_rgba(0,0,0,1)] text-left space-y-4">

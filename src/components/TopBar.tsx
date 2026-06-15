@@ -1,9 +1,16 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useWorkspaceStore } from "../stores/workspaceStore";
-import { Upload, Search, ShieldCheck, Database, Save, RotateCcw, RotateCw, ExternalLink, Settings, Sparkles, Activity } from "lucide-react";
+import { Upload, Search, ShieldCheck, Database, Save, RotateCcw, RotateCw, ExternalLink, Settings, Sparkles, Activity, Check, RefreshCw, Menu } from "lucide-react";
 import { Command } from "cmdk";
+import { InteractiveTilt } from "./InteractiveTilt";
 
-export function TopBar() {
+interface TopBarProps {
+  onTriggerMobileMenu: () => void;
+  inspectorOpen: boolean;
+  onToggleInspector: () => void;
+}
+
+export function TopBar({ onTriggerMobileMenu, inspectorOpen, onToggleInspector }: TopBarProps) {
   const {
     sourceFiles,
     activeFileId,
@@ -16,12 +23,28 @@ export function TopBar() {
     updateReadinessReport,
     setActiveFileId,
     setActiveTab,
-    createSnapshot
-  } = useWorkspaceStore();
+    createSnapshot,
+    lastSavedTime
+  } = useWorkspaceStore() as any;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+
+  // Auto-Save Status Animation Tracker
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("saved");
+  const [prevSavedTime, setPrevSavedTime] = useState(lastSavedTime);
+
+  useEffect(() => {
+    if (lastSavedTime && lastSavedTime !== prevSavedTime) {
+      setPrevSavedTime(lastSavedTime);
+      setSaveStatus("saving");
+      const delay = setTimeout(() => {
+        setSaveStatus("saved");
+      }, 1500); // 1.5s visual feedback animation
+      return () => clearTimeout(delay);
+    }
+  }, [lastSavedTime, prevSavedTime]);
 
   // Globally capture Cmd+K / Ctrl+K keyboard shortcut
   useEffect(() => {
@@ -97,19 +120,28 @@ export function TopBar() {
   };
 
   return (
-    <header className="h-16 border-b border-white/10 bg-[#151921] px-6 flex items-center justify-between z-30 shrink-0 relative">
+    <InteractiveTilt max={1} perspective={2000} className="w-full shrink-0 relative z-40">
+      <header className="h-16 border-b-3 border-black bg-[#0b0b12] px-4 md:px-6 flex items-center justify-between shadow-[0_3px_0_rgba(0,0,0,1)] w-full">
       {/* Workspace Identity Name */}
       <div className="flex items-center gap-3">
+        {/* Toggle mobile menu button */}
+        <button
+          onClick={onTriggerMobileMenu}
+          className="lg:hidden p-1.5 text-white bg-black border-2 border-black active:bg-[#CCFF00] active:text-black hover:bg-white hover:text-black cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] transition-all"
+        >
+          <Menu size={16} />
+        </button>
+        
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">W</div>
-          <span className="font-semibold text-sm tracking-tight text-white">
-            Whisper<span className="text-blue-500 font-bold">X</span>Workspace
+          <div className="w-8 h-8 bg-[#CCFF00] border-2 border-black flex items-center justify-center font-black text-black shadow-[2px_2px_0_rgba(0,0,0,1)] font-mono text-sm">W</div>
+          <span className="font-extrabold text-xs md:text-sm tracking-tight text-white uppercase font-sans">
+            Whisper<span className="text-[#00F5FF]">X</span>Hub
           </span>
         </div>
         <div className="h-6 w-px bg-white/10 ml-1 hidden sm:block"></div>
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-full border border-white/10 text-[10px] text-slate-400">
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-black/40 border-2 border-black text-[10px] text-slate-400 font-mono shadow-[1.5px_1.5px_0_rgba(0,0,0,1)]">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-          <span>Syncing: Gemini-2.0-Flash</span>
+          <span>Active: Gemini-2.0-Flash</span>
         </div>
       </div>
 
@@ -117,13 +149,13 @@ export function TopBar() {
       <div className="hidden md:flex flex-1 max-w-sm mx-6 relative font-sans">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full bg-[#1e293b]/45 border border-white/10 rounded-xl pl-3.5 pr-4 py-2 text-xs text-slate-400 hover:border-white/20 transition-all flex items-center justify-between cursor-pointer text-left focus:outline-none"
+          className="w-full bg-[#03040A] border-2 border-black pl-3.5 pr-4 py-2 text-xs text-slate-400 hover:border-white/20 transition-all flex items-center justify-between cursor-pointer text-left focus:outline-none shadow-[2px_2px_0_rgba(0,0,0,1)]"
         >
           <div className="flex items-center gap-2.5">
             <Search size={14} className="text-slate-500" />
             <span>Search workspace records & files...</span>
           </div>
-          <span className="text-[10px] font-mono tracking-widest bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-slate-500 select-none">⌘K</span>
+          <span className="text-[10px] font-mono tracking-widest bg-[#121620] border border-black px-1.5 py-0.5 rounded text-slate-500 select-none shadow-[1px_1px_0_rgba(0,0,0,1)]">⌘K</span>
         </button>
 
         {/* CMD+K OVERLAY MODAL */}
@@ -307,22 +339,22 @@ export function TopBar() {
       </div>
 
       {/* Action Pipeline Tools */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2.5">
         {/* Undo / Redo */}
-        <div className="hidden sm:flex items-center space-x-1.5 border-r border-white/10 pr-3 mr-1">
+        <div className="hidden sm:flex items-center space-x-1.5 border-r-2 border-black pr-3 mr-1.5">
           <button
             onClick={() => createSnapshot("Restore Point Undo")}
-            className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-white/5 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-[#CCFF00] hover:bg-white/5 border border-transparent hover:border-black active:bg-black transition-all cursor-pointer"
             title="Create undo snapshot"
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={13} />
           </button>
           <button
-            className="p-1.5 text-slate-600 cursor-not-allowed rounded"
+            className="p-1.5 text-slate-600 cursor-not-allowed"
             title="Redo state"
             disabled
           >
-            <RotateCw size={14} />
+            <RotateCw size={13} />
           </button>
         </div>
 
@@ -338,31 +370,48 @@ export function TopBar() {
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadLoading}
-          className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-550 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-lg shadow-blue-500/15 active:scale-95 transition-all cursor-pointer"
+          className="flex items-center space-x-1.5 bg-[#00F5FF] text-black font-black text-xs px-3 py-1.5 border-2 border-black active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer shadow-[2px_2px_0_rgba(0,0,0,1)] hover:bg-white"
         >
           {uploadLoading ? (
-            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
           ) : (
-            <Upload size={14} />
+            <Upload size={13} />
           )}
-          <span>{uploadLoading ? "Analyzing..." : "Quick Intake"}</span>
+          <span className="font-extrabold uppercase tracking-wider text-[10px]">{uploadLoading ? "..." : "Intake"}</span>
         </button>
 
         {/* Snapshot Save Trigger */}
         <button
           onClick={() => createSnapshot(`Manual Backup ${new Date().toLocaleTimeString()}`)}
-          className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors relative"
+          className="p-1 px-2 text-slate-400 hover:text-[#B44FFF] hover:bg-white/5 border border-transparent hover:border-black transition-all cursor-pointer"
           title="Create Snapshot"
         >
-          <Database size={15} />
+          <Database size={13} />
         </button>
 
-        {/* Status indicator */}
-        <div className="hidden md:flex items-center space-x-1.5 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-          <span className="text-[10px] text-slate-450 font-mono tracking-wider">SYNC COMPLETED</span>
+        {/* Status indicator with dynamic syncing & save feedback animations */}
+        <div className={`flex items-center space-x-2 border-2 px-2.5 py-1.5 text-xs font-mono transition-all uppercase leading-none shadow-[2px_2px_0_rgba(0,0,0,1)] ${
+          saveStatus === "saving" 
+            ? "bg-[#CCFF00] border-black text-black font-black animate-pulse" 
+            : "bg-[#121620] border-black text-emerald-400 font-bold"
+        }`}>
+          {saveStatus === "saving" ? (
+            <>
+              <RefreshCw size={11} className="animate-spin text-black" />
+              <span className="text-[9px] font-black tracking-widest leading-none">SAVING</span>
+            </>
+          ) : (
+            <>
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[9px] font-bold tracking-wider leading-none">SAVED</span>
+            </>
+          )}
         </div>
       </div>
     </header>
+  </InteractiveTilt>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } from "motion/react";
 
 interface InteractiveTiltProps {
   children: React.ReactNode;
@@ -31,6 +31,8 @@ export function InteractiveTilt({
   const glareX = useSpring(useTransform(x, [-0.5, 0.5], ["10%", "90%"]), springConfig);
   const glareY = useSpring(useTransform(y, [-0.5, 0.5], ["10%", "90%"]), springConfig);
   const glareOpacity = useSpring(useTransform(x, [-0.5, 0.5], [0.15, 0.45]), springConfig);
+
+  const glareBackground = useMotionTemplate`radial-gradient(circle at ${glareX} ${glareY}, rgba(255, 255, 255, ${glareOpacity}) 0%, rgba(0, 245, 255, 0.12) 30%, rgba(255, 45, 120, 0.08) 60%, transparent 80%)`;
 
   const [hovering, setHovering] = useState(false);
 
@@ -77,7 +79,7 @@ export function InteractiveTilt({
         <motion.div
           className="absolute inset-[1.5px] pointer-events-none z-15 mix-blend-color-dodge rounded-[inherit] overflow-hidden"
           style={{
-            background: `radial-gradient(circle at ${glareX.get()} ${glareY.get()}, rgba(255, 255, 255, ${glareOpacity.get()}) 0%, rgba(200, 255, 255, 0.08) 35%, transparent 65%)`,
+            background: glareBackground,
           }}
         />
       )}

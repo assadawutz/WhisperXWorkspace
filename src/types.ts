@@ -61,6 +61,7 @@ export interface SourceFileRecord {
   extractedBlocks: ExtractedBlockRecord[];
   entities: EntityRecord[];
   summary?: SummaryRecord;
+  versions?: any[];
 }
 
 export interface ArtifactRecord {

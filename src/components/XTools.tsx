@@ -159,8 +159,7 @@ function LightningEdge({
         fill="none"
         stroke="#CCFF00"
         strokeWidth={3}
-        strokeDasharray="5 3"
-        className="lightning-connection-intense"
+        className="lightning-connection"
         style={style}
         markerEnd={markerEnd}
       />

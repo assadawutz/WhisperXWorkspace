@@ -15,9 +15,41 @@ import { Toaster } from "./components/Toaster";
 
 function RootShell() {
   const device = useDevice();
-  const { activeTab } = useWorkspaceStore() as any;
+  const { activeTab, setActiveTab, addToast } = useWorkspaceStore() as any;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [inspectorExpanded, setInspectorExpanded] = useState(true);
+
+  // Global Workspace Hotkeys
+  React.useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "1") {
+          e.preventDefault();
+          setActiveTab("home");
+          addToast("Routing workspace state: [In-Intake Dashboard] Cmd+1", "info");
+        } else if (e.key === "2") {
+          e.preventDefault();
+          setActiveTab("agent");
+          addToast("Routing workspace state: [Multi-Agent Orchestrator] Cmd+2", "info");
+        } else if (e.key === "3") {
+          e.preventDefault();
+          setActiveTab("doc");
+          addToast("Routing workspace state: [Unified Document Editor] Cmd+3", "info");
+        } else if (e.key === "4") {
+          e.preventDefault();
+          setActiveTab("tools");
+          addToast("Routing workspace state: [Interactive Design Studio] Cmd+4", "info");
+        } else if (e.key === "5") {
+          e.preventDefault();
+          setActiveTab("settings");
+          addToast("Routing workspace state: [Telemetry System Panel] Cmd+5", "info");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [setActiveTab, addToast]);
 
   return (
     <div className="h-screen w-screen bg-[#03040A] text-slate-100 flex flex-col overflow-hidden font-mono select-none antialiased relative cosmic-grid">

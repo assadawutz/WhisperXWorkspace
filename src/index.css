@@ -97,11 +97,12 @@ body {
 
 /* React Flow ghost customization classes */
 .lightning-connection {
+  stroke-dasharray: 8 4 !important;
   animation: rf-dash 0.9s linear infinite !important;
 }
 @keyframes rf-dash {
   from {
-    stroke-dashoffset: 14;
+    stroke-dashoffset: 12;
   }
   to {
     stroke-dashoffset: 0;
@@ -109,6 +110,7 @@ body {
 }
 
 .lightning-connection-intense {
+  stroke-dasharray: 5 3 !important;
   animation: rf-dash-super 0.25s linear infinite !important;
 }
 @keyframes rf-dash-super {

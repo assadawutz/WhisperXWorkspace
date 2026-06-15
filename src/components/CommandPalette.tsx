@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Command } from "cmdk";
-import { useWorkspaceStore } from "../stores/workspaceStore";
-import { Search, File, Terminal, ArrowRight, Settings, Layout, Home, MessageSquare, Compass } from "lucide-react";
+import { useWorkspaceStore, ORCHESTRATION_AGENTS } from "../stores/workspaceStore";
+import { Search, File, Terminal, ArrowRight, Settings, Layout, Home, MessageSquare, Compass, Bot } from "lucide-react";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -12,6 +12,7 @@ export function CommandPalette() {
     setActiveTab, 
     setActiveDocSubTab, 
     setActiveFileId,
+    setActiveAgentId,
     addToast 
   } = useWorkspaceStore() as any;
 
@@ -43,6 +44,14 @@ export function CommandPalette() {
     (a.data && a.data.toLowerCase().includes(query))
   );
 
+  const filteredAgents = (ORCHESTRATION_AGENTS || []).filter((a: any) =>
+    a.id.toLowerCase().includes(query) ||
+    a.name.toLowerCase().includes(query) ||
+    a.role.toLowerCase().includes(query) ||
+    a.persona.toLowerCase().includes(query) ||
+    a.skills.some((sk: string) => sk.toLowerCase().includes(query))
+  );
+
   const handleNavigate = (tab: any, fileId?: string, isDocSubtab?: any) => {
     setActiveTab(tab);
     if (fileId) {
@@ -53,6 +62,13 @@ export function CommandPalette() {
     }
     setOpen(false);
     addToast(`Navigated to ${tab.toUpperCase()} ${fileId ? `→ file: ${fileId}` : ""}`, "success");
+  };
+
+  const handleSelectAgent = (agentId: string) => {
+    setActiveTab("agent");
+    setActiveAgentId(agentId);
+    setOpen(false);
+    addToast(`Routed channel focus to Agent: ${agentId}`, "success");
   };
 
   if (!open) return null;
@@ -169,11 +185,42 @@ export function CommandPalette() {
               </div>
             )}
           </div>
+
+          {/* Agent Nodes results */}
+          <div className="space-y-1.5">
+            <span className="text-[9px] px-2 text-[#00F5FF] font-bold uppercase tracking-widest">
+              CO-GHOST AGENT NODES ({filteredAgents.length})
+            </span>
+            {filteredAgents.length === 0 ? (
+              <p className="text-[10px] px-2 text-slate-500 italic">No agents matched search</p>
+            ) : (
+              <div className="space-y-0.5">
+                {filteredAgents.map((ag: any) => (
+                  <button
+                    key={ag.id}
+                    onClick={() => handleSelectAgent(ag.id)}
+                    className="w-full text-left p-2 hover:bg-[#00F5FF]/10 active:bg-white/10 text-slate-200 hover:text-white flex items-center justify-between transition-colors border border-transparent hover:border-[#00F5FF]/20"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-sm select-none p-1 bg-black/60 rounded border border-white/5 shrink-0">{ag.avatar}</span>
+                      <div className="truncate leading-tight text-left">
+                        <span className="font-bold text-[11px] text-[#00F5FF] block">{ag.id} / {ag.name}</span>
+                        <span className="text-[8.5px] text-slate-500 block truncate max-w-[280px] font-mono">{ag.role}</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-[#00F5FF] border border-[#00F5FF]/30 px-1.5 py-0.5 uppercase shrink-0 font-bold bg-[#00F5FF]/5 rounded">
+                      ROUTE Focus
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="bg-[# CCFF00]/5 border-t-2 border-white/10 p-3 flex justify-between items-center text-[10px] text-slate-400">
-          <span>Search files, tools, and artifacts instantly.</span>
-          <span className="text-white text-[9.5px]">▲ Enter to Nav</span>
+        <div className="bg-[#CCFF00]/5 border-t-2 border-white/10 p-3 flex justify-between items-center text-[10px] text-slate-400">
+          <span>Search documents, agents, metrics, and workspace code blocks.</span>
+          <span className="text-white text-[9.5px]">◄ Enter to Nav</span>
         </div>
       </div>
     </div>

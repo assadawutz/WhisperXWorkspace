@@ -169,6 +169,29 @@ Performance specs mandate under 250ms latency for Local and Gemini Cloud fallbac
       ],
       sentiment: "Highly positive / Structured",
     },
+    versions: [
+      {
+        id: "ver-sys-v1",
+        name: "SystemRegistry_v4.pdf",
+        content: "WhisperXWorkspace System Registry Core Outline. Primary hub registers 66 core systems.",
+        timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+        label: "Primary Baseline Version v1.0",
+      },
+      {
+        id: "ver-sys-v2",
+        name: "SystemRegistry_v4.pdf",
+        content: `WhisperXWorkspace System Registry. This is version 4.0 of our alpha design spec.
+Our architecture comprises exactly 66 primary business systems and 84 tightly-coupled technical subsystems.
+Core subsystems are indexed into:
+- System 01: Intake Hub & Source Upload pipeline
+- System 02: Prompt Plan generator module
+- System 03: Node Agent Orchestrator with Mascot Node Editor
+- System 04: Visual Document workspaces (XDoc: docs, sheets, slides)
+Performance specs mandate under 250ms latency for Local and Gemini Cloud fallback.`,
+        timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+        label: "Approved Alpha Spec Audit v2.0",
+      }
+    ],
   },
 ];
 
@@ -282,6 +305,12 @@ interface WorkspaceState {
   restoreSnapshot: (id: string) => void;
 
   setGeneratedAppPlan: (plan: any) => void;
+  saveDocumentVersion: (fileId: string, label: string) => void;
+  restoreDocumentVersion: (fileId: string, versionId: string) => void;
+
+  lastSavedTime: number;
+  agentPositions: Record<string, { x: number; y: number }>;
+  updateAgentPosition: (agentId: string, x: number, y: number) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -449,6 +478,27 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   ollamaModel: "llama3",
   fallbackMode: true,
   generatedAppPlan: null,
+
+  lastSavedTime: Date.now(),
+  agentPositions: {
+    ARIA: { x: 30, y: 30 },
+    KODE: { x: 260, y: 30 },
+    LUMA: { x: 490, y: 30 },
+    SAGE: { x: 30, y: 210 },
+    ECHO: { x: 260, y: 210 },
+    NOVA: { x: 490, y: 210 },
+    VIGI: { x: 30, y: 390 },
+    ZARA: { x: 260, y: 390 },
+    REX: { x: 490, y: 390 },
+  },
+
+  updateAgentPosition: (agentId, x, y) =>
+    set((state) => ({
+      agentPositions: {
+        ...state.agentPositions,
+        [agentId]: { x, y },
+      },
+    })),
 
   // Toasts
   toasts: [],
@@ -637,6 +687,55 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }),
 
   setGeneratedAppPlan: (generatedAppPlan) => set({ generatedAppPlan }),
+
+  saveDocumentVersion: (fileId, label) =>
+    set((state) => {
+      const file = state.sourceFiles.find((f) => f.id === fileId);
+      if (!file) return {};
+      
+      const versions = (file as any).versions || [];
+      const newVersion = {
+        id: `ver-${Date.now()}`,
+        name: file.name,
+        content: file.extractedText || "",
+        timestamp: new Date().toISOString(),
+        label: label || `Manual checkpoint ${versions.length + 1}`,
+      };
+      
+      const updatedFiles = state.sourceFiles.map((f) => {
+        if (f.id === fileId) {
+          return {
+            ...f,
+            versions: [newVersion, ...versions],
+          };
+        }
+        return f;
+      });
+
+      return { sourceFiles: updatedFiles };
+    }),
+
+  restoreDocumentVersion: (fileId, versionId) =>
+    set((state) => {
+      const file = state.sourceFiles.find((f) => f.id === fileId);
+      if (!file) return {};
+
+      const versions = (file as any).versions || [];
+      const target = versions.find((v: any) => v.id === versionId);
+      if (!target) return {};
+
+      const updatedFiles = state.sourceFiles.map((f) => {
+        if (f.id === fileId) {
+          return {
+            ...f,
+            extractedText: target.content,
+          };
+        }
+        return f;
+      });
+
+      return { sourceFiles: updatedFiles };
+    }),
 }));
 
 // Auto-hydration from localStorage on startup (with try-catch safety)
@@ -661,6 +760,7 @@ if (typeof window !== "undefined") {
         ollamaUrl: parsed.ollamaUrl || useWorkspaceStore.getState().ollamaUrl,
         ollamaModel: parsed.ollamaModel || useWorkspaceStore.getState().ollamaModel,
         fallbackMode: parsed.fallbackMode !== undefined ? parsed.fallbackMode : useWorkspaceStore.getState().fallbackMode,
+        agentPositions: parsed.agentPositions || useWorkspaceStore.getState().agentPositions,
       });
       console.log("WhisperXWorkspace state hydrated from LocalStorage.");
     }
@@ -694,6 +794,7 @@ if (typeof window !== "undefined") {
         ollamaUrl: state.ollamaUrl,
         ollamaModel: state.ollamaModel,
         fallbackMode: state.fallbackMode,
+        agentPositions: state.agentPositions,
       };
       const stringified = JSON.stringify(dataToSave);
       if (stringified === lastSavedString) return;
@@ -706,6 +807,9 @@ if (typeof window !== "undefined") {
 
       // Trigger automatic save toast status notification
       state.addToast(`Autosaved Workspace State (${state.sourceFiles.length} files, ${state.artifacts.length} artifacts)`, "success");
+
+      // Stamp the sync time to flash visual indicator in real-time
+      useWorkspaceStore.setState({ lastSavedTime: Date.now() });
     } catch (err) {
       console.error("Local storage auto-save failure:", err);
     }

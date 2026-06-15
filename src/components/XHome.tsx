@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { SourceFileRecord } from "../types";
 import { IngestFileForm } from "./IngestFileForm";
@@ -22,6 +22,52 @@ import { CoreStacksConnector } from "./CoreStacksConnector";
 import { SkillsCloud } from "./SkillsCloud";
 import { InteractiveTilt } from "./InteractiveTilt";
 
+// ====================================================
+// REUSABLE INTERSECTION OBSERVER FOR SCROLL REVEAL
+// ====================================================
+function useScrollObserver() {
+  const domRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("animate-slide-in");
+            entry.target.classList.remove("opacity-0");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -50px 0px" }
+    );
+
+    const currentElem = domRef.current;
+    if (currentElem) {
+      const targets = currentElem.querySelectorAll(".reveal-section");
+      if (targets.length > 0) {
+        targets.forEach((t) => {
+          t.classList.add("opacity-0");
+          observer.observe(t);
+        });
+      } else {
+        currentElem.classList.add("opacity-0");
+        observer.observe(currentElem);
+      }
+    }
+
+    return () => {
+      if (currentElem) {
+        const targets = currentElem.querySelectorAll(".reveal-section");
+        targets.forEach((t) => observer.unobserve(t));
+        observer.unobserve(currentElem);
+      }
+    };
+  }, []);
+
+  return domRef;
+}
+
 export function XHome() {
   const {
     sourceFiles,
@@ -38,6 +84,8 @@ export function XHome() {
   const [ideaText, setIdeaText] = useState("");
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [exportedStatus, setExportedStatus] = useState(false);
+
+  const revealRef = useScrollObserver();
 
   // Stats calculate
   const totalFiles = sourceFiles.length;
@@ -85,16 +133,18 @@ export function XHome() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div ref={revealRef} className="space-y-6 pb-12 overflow-x-hidden">
       {/* 1. NEON SLANTED HERO BANNER */}
-      <TiltBlock 
-        title="WHISPERX WORKSPACE HUB" 
-        subtitle="AUTOSAVED INTAKE PIPELINE • TESSERACT OCR • 66 SYSTEMS DIRECTORY"
-        gradient="lime-cyan" 
-      />
+      <div className="reveal-section transition-all duration-300">
+        <TiltBlock 
+          title="WHISPERX WORKSPACE HUB" 
+          subtitle="AUTOSAVED INTAKE PIPELINE • TESSERACT OCR • 66 SYSTEMS DIRECTORY"
+          gradient="lime-cyan" 
+        />
+      </div>
 
       {/* 2. SYSTEM ANALYTICS METRICS ROW */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 reveal-section transition-all duration-300">
         {/* Metric 1 */}
         <InteractiveTilt max={10}>
           <div className="bg-[#0b0b12] border-3 border-[#CCFF00] p-5 h-full shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group transition-all duration-150">
@@ -133,10 +183,12 @@ export function XHome() {
       </section>
 
       {/* 3. CORE PIPELINE CONNECTORS VISUALS */}
-      <CoreStacksConnector />
+      <div className="reveal-section transition-all duration-300">
+        <CoreStacksConnector />
+      </div>
 
       {/* 4. WORK SURFACE TWO-PANEL GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start reveal-section transition-all duration-300">
         
         {/* Left Column: File Intake & Folder Register */}
         <div className="lg:col-span-7 space-y-6">
@@ -190,11 +242,11 @@ export function XHome() {
                             {file.name}
                           </p>
                           <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1 font-mono">
-                            <span>{(file.size / 1024).toFixed(1)} KB</span>
-                            <span className="text-slate-600">•</span>
-                            <span className="text-[#FF2D78] truncate max-w-[120px] font-bold">{file.type}</span>
-                            <span className="text-slate-600">•</span>
-                            <span className="text-[#CCFF00] font-bold uppercase">{file.ocrStatus}</span>
+                             <span>{(file.size / 1024).toFixed(1)} KB</span>
+                             <span className="text-slate-600">•</span>
+                             <span className="text-[#FF2D78] truncate max-w-[120px] font-bold">{file.type}</span>
+                             <span className="text-slate-600">•</span>
+                             <span className="text-[#CCFF00] font-bold uppercase">{file.ocrStatus}</span>
                           </div>
                           {file.summary && (
                             <p className="text-[10.5px] text-slate-400 line-clamp-2 mt-2 italic bg-black/40 p-2 border border-white/5">
@@ -324,7 +376,9 @@ export function XHome() {
       </div>
 
       {/* 5. MULTI-CATEGORY COMPREHENSIVE SKILLS CLOUD */}
-      <SkillsCloud />
+      <div className="reveal-section transition-all duration-300">
+        <SkillsCloud />
+      </div>
     </div>
   );
 }
