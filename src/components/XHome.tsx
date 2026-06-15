@@ -20,6 +20,7 @@ import {
 import { TiltBlock } from "./TiltBlock";
 import { CoreStacksConnector } from "./CoreStacksConnector";
 import { SkillsCloud } from "./SkillsCloud";
+import { InteractiveTilt } from "./InteractiveTilt";
 
 export function XHome() {
   const {
@@ -95,34 +96,40 @@ export function XHome() {
       {/* 2. SYSTEM ANALYTICS METRICS ROW */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Metric 1 */}
-        <div className="bg-[#0b0b12] border-3 border-[#CCFF00] p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group hover:-translate-y-0.5 transition-transform duration-150">
-          <div className="absolute top-2 right-2 text-[#CCFF00] opacity-10 font-bold text-4xl">66</div>
-          <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider">WORKSPACE SYSTEMS MAP</p>
-          <div className="mt-4">
-            <span className="text-2xl font-black font-mono text-white tracking-tight">66 SYSTEMS</span>
-            <span className="block text-[10px] text-slate-400 font-mono mt-1">84 integrated subsystems active</span>
+        <InteractiveTilt max={10}>
+          <div className="bg-[#0b0b12] border-3 border-[#CCFF00] p-5 h-full shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group transition-all duration-150">
+            <div className="absolute top-2 right-2 text-[#CCFF00] opacity-10 font-bold text-4xl">66</div>
+            <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider animate-pulse">WORKSPACE SYSTEMS MAP</p>
+            <div className="mt-4">
+              <span className="text-2xl font-black font-mono text-white tracking-tight">66 SYSTEMS</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-1">84 integrated subsystems active</span>
+            </div>
           </div>
-        </div>
+        </InteractiveTilt>
 
         {/* Metric 2 */}
-        <div className="bg-[#0b0b12] border-3 border-[#FF2D78] p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group hover:-translate-y-0.5 transition-transform duration-150">
-          <div className="absolute top-2 right-2 text-[#FF2D78] opacity-10 font-bold text-4xl">FL</div>
-          <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider">INGESTED RECORDS</p>
-          <div className="mt-4">
-            <span className="text-2xl font-black font-mono text-white tracking-tight">{totalFiles} ARCHIVES</span>
-            <span className="block text-[10px] text-slate-400 font-mono mt-1">{totalBlocks} content partitions</span>
+        <InteractiveTilt max={10}>
+          <div className="bg-[#0b0b12] border-3 border-[#FF2D78] p-5 h-full shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group transition-all duration-150">
+            <div className="absolute top-2 right-2 text-[#FF2D78] opacity-10 font-bold text-4xl">FL</div>
+            <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider animate-pulse">INGESTED RECORDS</p>
+            <div className="mt-4">
+              <span className="text-2xl font-black font-mono text-white tracking-tight">{totalFiles} ARCHIVES</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-1">{totalBlocks} content partitions</span>
+            </div>
           </div>
-        </div>
+        </InteractiveTilt>
 
         {/* Metric 3 */}
-        <div className="bg-[#0b0b12] border-3 border-[#00F5FF] p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group hover:-translate-y-0.5 transition-transform duration-150">
-          <div className="absolute top-2 right-2 text-[#00F5FF] opacity-10 font-bold text-4xl">TX</div>
-          <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider">TEXT EXTRACTION LOGS</p>
-          <div className="mt-4">
-            <span className="text-2xl font-black font-mono text-white tracking-tight">{wordCountSum} WORDS</span>
-            <span className="block text-[10px] text-slate-400 font-mono mt-1">Verified via local Tesseract.js</span>
+        <InteractiveTilt max={10}>
+          <div className="bg-[#0b0b12] border-3 border-[#00F5FF] p-5 h-full shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col justify-between text-left relative overflow-hidden group transition-all duration-150">
+            <div className="absolute top-2 right-2 text-[#00F5FF] opacity-10 font-bold text-4xl">TX</div>
+            <p className="text-[9.5px] font-mono text-slate-400 font-bold uppercase tracking-wider animate-pulse">TEXT EXTRACTION LOGS</p>
+            <div className="mt-4">
+              <span className="text-2xl font-black font-mono text-white tracking-tight">{wordCountSum} WORDS</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-1">Verified via local Tesseract.js</span>
+            </div>
           </div>
-        </div>
+        </InteractiveTilt>
       </section>
 
       {/* 3. CORE PIPELINE CONNECTORS VISUALS */}
