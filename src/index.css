@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+:root {
+  --accent-lime: #CCFF00;
+  --accent-pink: #FF2D78;
+  --accent-cyan: #00F5FF;
+  --accent-violet: #B44FFF;
+  --bg-dark: #03040A;
+  --bg-surface: #0b0b12;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #F0F4FF;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  overflow-x: hidden;
+}
+
+/* Neubrutalist hard box shadows */
+.brutal-shadow-lime {
+  box-shadow: 4px 4px 0px #CCFF00;
+}
+.brutal-shadow-pink {
+  box-shadow: 4px 4px 0px #FF2D78;
+}
+.brutal-shadow-cyan {
+  box-shadow: 4px 4px 0px #00F5FF;
+}
+.brutal-shadow-violet {
+  box-shadow: 4px 4px 0px #B44FFF;
+}
+.brutal-shadow-black {
+  box-shadow: 5px 5px 0px rgba(0, 0, 0, 1);
+}
+
+/* Custom Holographic Dot Shifting Layouts */
+.cosmic-grid {
+  background-image: radial-gradient(rgba(204, 255, 0, 0.08) 1.5px, transparent 1.5px),
+                    radial-gradient(rgba(0, 245, 255, 0.08) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+  animation: bgShift 45s infinite linear;
+}
+
+@keyframes bgShift {
+  from {
+    background-position: 0 0, 16px 16px;
+  }
+  to {
+    background-position: 320px 320px, 336px 336px;
+  }
+}
+
+/* Spark animations and slideins */
+@keyframes slideIn {
+  from {
+    transform: translateY(15px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Laser-ray vertical slide scanning */
+@keyframes scanline {
+  0% {
+    top: -100%;
+  }
+  100% {
+    top: 200%;
+  }
+}
+.laser-scanner {
+  animation: scanline 8s linear infinite;
+}
+
+/* React Flow ghost customization classes */
+.lightning-connection {
+  animation: rf-dash 0.9s linear infinite !important;
+}
+@keyframes rf-dash {
+  from {
+    stroke-dashoffset: 14;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.lightning-connection-intense {
+  animation: rf-dash-super 0.25s linear infinite !important;
+}
+@keyframes rf-dash-super {
+  from {
+    stroke-dashoffset: 8;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.lightning-glow-intense {
+  animation: glow-pulse 1.2s ease-in-out infinite !important;
+}
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0px 0px 4px rgba(59, 130, 246, 0.8)) drop-shadow(0px 0px 6px rgba(139, 92, 246, 0.7));
+    opacity: 0.8;
+  }
+  50% {
+    filter: drop-shadow(0px 0px 14px rgba(236, 72, 153, 0.95)) drop-shadow(0px 0px 20px rgba(56, 189, 248, 0.9));
+    opacity: 1.0;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+  border-left: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-lime);
+  border: 2px solid var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}

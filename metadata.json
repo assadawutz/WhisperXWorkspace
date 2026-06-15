@@ -1,0 +1,6 @@
+{
+  "name": "WhisperXWorkspace",
+  "description": "Full-production multi-agent visual workspace with document tools, mascot ghost node workflows, intelligent file ingestion, and multi-channel chat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
